@@ -1,0 +1,272 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>뿌리의 루트 미끄럼틀</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* layout: 위 상태 막대, 왼쪽 놀이판(원래 미끄럼틀·목표 자리·내 미끄럼틀), 오른쪽 이동 조종판 */
+:root{
+  --bg:#fff7ec; --panel:#ffffff; --ink:#3a2f2a; --muted:#8a7a70; --line:#f0dfcc; --grid:#f3e6d3;
+  --path:#2fa36b; --path-soft:#dcf3e6; --base:#b9aca2; --goal:#ff7a45; --goal-soft:#ffe6d9; --vec:#5b6cff; --heart:#ff5d7a; --sky:#eef8ff; --btn:#fff1dd; --accent:#ff8a3d;
+  --f-display:"Jua","Noto Sans KR",system-ui,sans-serif;
+  --f-body:"Noto Sans KR",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1c1a24; --panel:#262331; --ink:#f4ece6; --muted:#b5a9a1; --line:#3a3547; --grid:#2c2838;
+  --path:#6fd6a0; --path-soft:#24453a; --base:#776d80; --goal:#ff9a6b; --goal-soft:#4a2f2a; --vec:#9aa6ff; --heart:#ff7d94; --sky:#1f2636; --btn:#3a3044; --accent:#ffa35f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1c1a24; --panel:#262331; --ink:#f4ece6; --muted:#b5a9a1; --line:#3a3547; --grid:#2c2838;
+  --path:#6fd6a0; --path-soft:#24453a; --base:#776d80; --goal:#ff9a6b; --goal-soft:#4a2f2a; --vec:#9aa6ff; --heart:#ff7d94; --sky:#1f2636; --btn:#3a3044; --accent:#ffa35f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap{max-width:1080px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px 18px}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(28px,4.6vw,40px);margin:0;line-height:1.1}
+h1 span{color:var(--path)}
+.hud{display:flex;gap:10px;flex-wrap:wrap;font-family:var(--f-display);font-size:19px}
+.hud div{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:4px 14px;display:flex;gap:6px;align-items:center}
+.hud .hearts{color:var(--heart);letter-spacing:2px}
+.hud b{font-weight:400;color:var(--accent);font-variant-numeric:tabular-nums}
+.game{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;align-items:start}
+.board{background:var(--sky);border:3px solid var(--line);border-radius:22px;overflow:hidden;position:relative;touch-action:none}
+.board canvas{display:block;width:100%;outline:none}
+.bubble{position:absolute;left:14px;top:12px;max-width:min(80%,440px);background:var(--panel);border:2px solid var(--line);border-radius:16px 16px 16px 4px;padding:7px 13px;font-size:14px;pointer-events:none}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);padding:8px 14px;border-top:2px solid var(--line);background:var(--panel)}
+.legend i{display:inline-block;width:20px;height:0;border-top:4px solid;vertical-align:middle;margin-right:5px;border-radius:2px}
+.over{position:absolute;inset:0;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 82%,transparent)}
+.over .box{background:var(--panel);border:3px solid var(--line);border-radius:22px;padding:22px 26px;text-align:center;display:grid;gap:10px;max-width:90%}
+.over h2{font-family:var(--f-display);font-weight:400;font-size:30px;margin:0}
+.side{display:grid;gap:12px}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:20px;padding:14px 16px;display:grid;gap:10px}
+.card h2{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0}
+.mission{font-size:14px;color:var(--muted);margin:0}
+.goal-eq{font-family:var(--f-mono);font-weight:600;font-size:20px;text-align:center;background:var(--goal-soft);color:var(--goal);border-radius:12px;padding:8px}
+.move{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,44px);gap:6px;max-width:220px;margin:0 auto;width:100%}
+.move button{font:inherit;font-family:var(--f-display);font-size:22px;border:2px solid var(--line);background:var(--btn);border-radius:12px;color:var(--ink);cursor:pointer}
+.move .c{grid-column:2;grid-row:2;font-size:13px;font-family:var(--f-body);display:grid;place-items:center;color:var(--muted);text-align:center;line-height:1.2}
+.vecbox{display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:center;font-size:13px}
+.vecbox div{background:var(--btn);border-radius:12px;padding:6px}
+.vecbox b{display:block;font-family:var(--f-mono);font-size:22px;color:var(--vec)}
+.eq{font-family:var(--f-mono);font-weight:600;font-size:20px;text-align:center;color:var(--path)}
+.eq small{display:block;font-family:var(--f-body);font-weight:400;font-size:12px;color:var(--muted)}
+.go{font:inherit;font-family:var(--f-display);font-size:24px;padding:10px;border:0;border-radius:16px;background:var(--accent);color:#fff;cursor:pointer;box-shadow:0 4px 0 color-mix(in srgb,var(--accent) 60%,#000)}
+.go:active{transform:translateY(2px);box-shadow:0 2px 0 color-mix(in srgb,var(--accent) 60%,#000)}
+.go:disabled{opacity:.5;cursor:default}
+.small{font:inherit;font-size:13px;border:2px solid var(--line);background:transparent;border-radius:12px;padding:6px 12px;color:var(--ink);cursor:pointer}
+button:focus-visible,canvas:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.tip{font-size:13.5px;color:var(--muted)}
+.tip b{color:var(--ink)}
+.tip p{margin:0}
+@media (max-width:820px){.game{grid-template-columns:1fr}}
+</style>
+<style>
+.missions{display:flex;gap:6px;flex-wrap:wrap}
+.missions button{font:inherit;font-size:12.5px;padding:5px 11px;border-radius:99px;border:2px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.missions button[aria-current=true]{background:var(--path);border-color:var(--path);color:#fff}
+.missions button .lock{opacity:.5}
+.flip{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.flip button{font:inherit;font-size:12.5px;border:2px solid var(--line);background:var(--btn);border-radius:12px;padding:6px 4px;cursor:pointer;color:var(--ink);display:grid;justify-items:center;gap:2px}
+.flip button svg{width:40px;height:30px}
+.shape-now{text-align:center;font-size:13px;color:var(--muted)}
+.shape-now b{font-family:var(--f-mono);color:var(--path)}
+.cond{display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:center}
+.cond div{background:var(--goal-soft);color:var(--goal);border-radius:12px;padding:8px 4px;font-family:var(--f-mono);font-weight:600;font-size:16px}
+.cond small{display:block;font-family:var(--f-body);font-weight:400;font-size:11.5px}
+.dr{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12.5px;text-align:center}
+.dr span{background:var(--btn);border-radius:10px;padding:4px}
+.newm{font-size:15px;line-height:1.7;max-width:36ch;margin:0 auto}
+.newm b{color:var(--path)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>뿌리의 <span>루트 미끄럼틀</span></h1>
+    <div class="hud">
+      <div>스테이지 <b id="stg">1</b></div>
+      <div class="hearts" id="hearts" aria-label="남은 하트">♥♥♥</div>
+      <div>점수 <b id="score">0</b></div>
+      <div>연속 <b id="combo">0</b></div>
+    </div>
+  </header>
+  <nav class="missions" id="missions" aria-label="미션 바로가기"></nav>
+
+  <div class="game">
+    <div>
+      <div class="board" id="board">
+        <canvas id="cv" tabindex="0" aria-label="무리함수 그래프 이동 놀이판. 방향키로 미끄럼틀을 가로세로 한 칸씩 옮길 수 있습니다."></canvas>
+        <div class="bubble" id="bubble"></div>
+        <div class="over" id="over" hidden><div class="box"><h2 id="oT">게임 끝</h2><div id="oP"></div><button class="go" id="again">다시 하기</button></div></div>
+      </div>
+      <div class="legend"><span><i style="border-color:var(--base)"></i><span id="lgB">원래 미끄럼틀 y = √x</span></span><span><i style="border-color:var(--goal);border-top-style:dashed"></i>목표 자리</span><span><i style="border-color:var(--path)"></i>내 미끄럼틀</span><span><i style="border-color:var(--vec)"></i>이동한 만큼</span><span>○ A·B·C 원래 점 → ● A′·B′·C′ 옮겨진 점 · ★ 목표 점 (같은 색끼리 짝)</span></div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h2 id="mT">미션</h2>
+        <p class="mission" id="mP"></p>
+        <div class="goal-eq" id="gEq" hidden></div>
+        <div class="cond" id="gCond" hidden></div>
+      </div>
+      <div class="card">
+        <div id="flipBox" hidden>
+          <div class="flip" role="group" aria-label="미끄럼틀 뒤집기">
+            <button data-f="x" aria-label="x축에 대하여 대칭이동"><svg viewBox="0 0 40 30"><line x1="2" y1="15" x2="38" y2="15" stroke="currentColor" stroke-width="1" stroke-dasharray="3 2"/><path d="M8 10 Q14 4 24 3" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M8 20 Q14 26 24 27" fill="none" stroke="currentColor" stroke-width="2.4" opacity=".55"/></svg>x축 대칭</button>
+            <button data-f="y" aria-label="y축에 대하여 대칭이동"><svg viewBox="0 0 40 30"><line x1="20" y1="2" x2="20" y2="28" stroke="currentColor" stroke-width="1" stroke-dasharray="3 2"/><path d="M23 22 Q28 12 38 10" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M17 22 Q12 12 2 10" fill="none" stroke="currentColor" stroke-width="2.4" opacity=".55"/></svg>y축 대칭</button>
+            <button data-f="o" aria-label="원점에 대하여 대칭이동"><svg viewBox="0 0 40 30"><circle cx="20" cy="15" r="2" fill="currentColor"/><path d="M22 13 Q28 6 38 4" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M18 17 Q12 24 2 26" fill="none" stroke="currentColor" stroke-width="2.4" opacity=".55"/></svg>원점 대칭</button>
+          </div>
+          <p class="shape-now">지금 모양 <b id="shapeNow">y = √x</b></p>
+        </div>
+        <div class="vecbox"><div>x축 방향으로<b id="vp">0</b></div><div>y축 방향으로<b id="vq">0</b></div></div>
+        <div class="move" role="group" aria-label="미끄럼틀 옮기기">
+          <button style="grid-column:2;grid-row:1" data-d="0,1" aria-label="위로 1칸">↑</button>
+          <button style="grid-column:1;grid-row:2" data-d="-1,0" aria-label="왼쪽으로 1칸">←</button>
+          <div class="c">가로·세로<br>한 칸씩</div>
+          <button style="grid-column:3;grid-row:2" data-d="1,0" aria-label="오른쪽으로 1칸">→</button>
+          <button style="grid-column:2;grid-row:3" data-d="0,-1" aria-label="아래로 1칸">↓</button>
+        </div>
+        <div class="eq" id="eq"></div>
+        <div class="dr"><span id="dom"></span><span id="rng"></span></div>
+        <button class="go" id="go">여기에 놓기!</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="small" id="hint">힌트 (점수 −1)</button><button class="small" id="reset">처음부터</button></div>
+      </div>
+      <div class="card tip" id="learn"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);const cv=$('cv'),ctx=cv.getContext('2d'),board=$('board');
+const XR=8,YR=6;let W,H,U;
+function size(){const d=Math.min(2,devicePixelRatio||1);W=board.clientWidth;H=Math.round(W*YR/XR);cv.width=W*d;cv.height=H*d;cv.style.height=H+'px';U=W/(2*XR);ctx.setTransform(d,0,0,d,0,0)}
+const X=x=>W/2+x*U,Y=y=>H/2-y*U;
+let C={};function rc(){const s=getComputedStyle(document.documentElement);['ink','muted','line','grid','path','base','goal','vec','panel','accent'].forEach(k=>C[k]=s.getPropertyValue('--'+k).trim())}
+rc();matchMedia('(prefers-color-scheme: dark)').addEventListener('change',rc);new MutationObserver(rc).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const SHAPES=[{s:1,o:1},{s:-1,o:1},{s:1,o:-1},{s:-1,o:-1}];
+const START=[1,4,7,10,13,16];
+const MISSIONS=[
+ {n:'평행이동',t:'목표 자리에 옮겨 놓기',p:'회색 원래 미끄럼틀 y = √x를 화살표 버튼으로 가로(x축 방향)·세로(y축 방향)로 한 칸씩 옮겨 주황 점선 자리에 맞추세요. 뿌리가 점선 동그라미에 쏙 들어가면 성공!',
+  l:'<p><b>평행이동.</b> 미끄럼틀 전체를 x축 방향으로 p칸, y축 방향으로 q칸 옮기면 식은 <b>y = √(x − p) + q</b>가 돼요. 오른쪽으로 옮겼는데 식에는 <b>x − p</b>로 빼기가 나온다는 점에 주의!</p>',say:'안녕, 나는 뿌리야! 나를 주황 동그라미 안에 데려다 줘.'},
+ {n:'두 점으로',t:'두 점으로 자리 찾기',p:'목표 자리가 ★ 두 개로만 보여요. 원래 미끄럼틀 위의 점 B(분홍)는 분홍 ★로, 점 C(주황)는 주황 ★로 옮겨져요. 같은 색 점끼리 몇 칸 떨어져 있는지 세어 보세요.',
+  l:'<p><b>모든 점이 똑같이 움직여요.</b> 평행이동하면 점 (a, b)는 (a + p, b + q)로 옮겨져요. 같은 색 점과 ★ 한 쌍만 비교해도 p와 q를 알 수 있어요. B(1, 1)이 B′(1 + p, 1 + q)로 가는 거예요.</p>',say:'분홍 B는 분홍 ★로, 주황 C는 주황 ★로! 몇 칸 움직였을까?'},
+ {n:'식 보고',t:'식을 읽고 옮기기',p:'목표 자리가 식으로만 주어져요. 식에서 x축 방향, y축 방향으로 얼마나 옮겼는지 읽어 내세요.',
+  l:'<p><b>식에서 읽기.</b> y = √(x + 2) − 3이면 x − p = x + 2이므로 p = −2, q = −3이에요. 왼쪽으로 2칸, 아래로 3칸 옮긴 그래프예요.</p>',say:'식 속에 숨은 이동 거리를 찾아 줘!'},
+ {n:'뒤집기',t:'뒤집고 옮기기 (대칭이동)',p:'목표 미끄럼틀은 방향이 달라요. 먼저 뒤집기 버튼으로 모양을 맞추고, 그다음 화살표로 옮기세요. 뒤집기는 원래 자리의 축을 기준으로 해요.',
+  l:'<p><b>대칭이동.</b> y = √x를 x축에 대하여 대칭이동하면 y가 −y로 바뀌어 <b>y = −√x</b>, y축에 대하여 대칭이동하면 x가 −x로 바뀌어 <b>y = √(−x)</b>, 원점에 대하여 대칭이동하면 <b>y = −√(−x)</b>가 돼요.</p>',say:'이번 미끄럼틀은 방향이 달라! 먼저 뒤집어 볼까?'},
+ {n:'정의역·치역',t:'조건에 맞는 미끄럼틀 만들기',p:'목표 그래프는 숨겨져 있어요. 정의역과 치역 조건만 보고, 조건에 꼭 맞는 미끄럼틀을 만드세요.',
+  l:'<p><b>정의역과 치역으로 읽기.</b> y = ±√(±(x − p)) + q에서 출발점은 (p, q)예요. 정의역 x ≥ p이면 오른쪽으로, x ≤ p이면 왼쪽으로 뻗고, 치역 y ≥ q이면 위로, y ≤ q이면 아래로 뻗어요.</p>',say:'조건 두 개만으로 나를 놓을 수 있겠어?'},
+ {n:'종합',t:'식 해석 종합',p:'뒤집기와 평행이동이 섞인 식이에요. 근호 안을 −(x − p) 꼴로 묶어 보면 모양과 출발점이 함께 보여요.',
+  l:'<p><b>표준형으로 묶기.</b> y = −√(−x + 3) + 2 = −√(−(x − 3)) + 2예요. 근호 앞 −는 x축 대칭, 근호 안 −는 y축 대칭이고, 출발점은 (3, 2)예요.</p>',say:'마지막 미션이야! 식을 잘 묶어 봐.'}];
+
+let base=SHAPES[0],me={p:0,q:0,s:1,o:1},T={p:3,q:1,s:1,o:1},stage=1,hearts=3,score=0,combo=0,lv=1,busy=false,ride=null,mood='happy',hintOn=false,party=[],unlocked=1,pending=false;
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const xOf=(o,u)=>o.p+o.s*u,yOf=(o,u)=>o.q+o.o*Math.sqrt(u);
+const KEY=[1,4];
+const PTS=[{u:0,n:'A',c:'#5b6cff'},{u:1,n:'B',c:'#e64980'},{u:4,n:'C',c:'#e8590c'}];
+function dot(x,y,P,filled,label){ctx.beginPath();ctx.arc(x,y,U*.2,0,7);ctx.fillStyle=filled?P.c:'#ffffff';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=P.c;ctx.stroke();if(filled){ctx.lineWidth=1.5;ctx.strokeStyle='#ffffff';ctx.beginPath();ctx.arc(x,y,U*.2+2,0,7);ctx.stroke()}ctx.fillStyle=P.c;ctx.font='700 13px "Noto Sans KR",sans-serif';ctx.fillText(label,x+U*.26,y+U*.5)}
+const lvOf=st=>{let l=1;START.forEach((s,i)=>{if(st>=s)l=i+1});return l};
+
+function newStage(){const prev=lv;lv=lvOf(stage);
+ if(lv<=3){base=lv===1?SHAPES[0]:SHAPES[ri(0,3)];}else base=SHAPES[0];
+ const ts=lv<=3?base:(lv===4?SHAPES[ri(1,3)]:SHAPES[ri(0,3)]);
+ let t;do{t={p:ri(-5,5),q:ri(-3,3),s:ts.s,o:ts.o}}while((Math.abs(t.p)+Math.abs(t.q)<2)||!fits(t));
+ T=t;me={p:0,q:0,s:base.s,o:base.o};hintOn=false;mood='happy';busy=false;$('go').disabled=false;
+ const M=MISSIONS[lv-1];$('mT').textContent=`미션 ${lv} · ${M.t}`;$('mP').textContent=M.p;
+ $('gEq').hidden=!(lv===3||lv===6);$('gEq').textContent='목표  '+eqOf(T);
+ $('gCond').hidden=lv!==5;$('gCond').innerHTML=`<div><small>정의역</small>x ${T.s>0?'≥':'≤'} ${T.p}</div><div><small>치역</small>y ${T.o>0?'≥':'≤'} ${T.q}</div>`;
+ $('flipBox').hidden=lv<4;$('lgB').textContent='원래 미끄럼틀 '+shapeName(base);$('learn').innerHTML=M.l;say(M.say);
+ if(lv>unlocked)unlocked=lv;
+ hud();ui();nav();
+ if(lv!==prev&&lv>1&&!pending)newMission(lv)}
+function newMission(l){const M=MISSIONS[l-1];$('oT').textContent=`새 미션 ${l} · ${M.n}`;$('oP').innerHTML=`<p class="newm">${M.p}</p>`;$('again').textContent='시작하기';$('again').onclick=()=>{$('over').hidden=true};$('over').hidden=false}
+function fits(t){for(const u of [0,...KEY]){const x=xOf(t,u),y=yOf(t,u);if(Math.abs(x)>7.2||Math.abs(y)>5.2)return false}return true}
+function eqOf(o){const pIn=o.p===0?'x':`x ${o.p<0?'+ '+(-o.p):'− '+o.p}`;const inside=o.s>0?pIn:(o.p===0?'−x':`−(${pIn})`);return `y = ${o.o<0?'−':''}√(${inside})${o.q?(o.q<0?' − '+(-o.q):' + '+o.q):''}`}
+function genEq(o){const B=-o.s*o.p;const ax=o.s>0?'x':'−x';const ins=B===0?ax:`${ax} ${B<0?'− '+(-B):'+ '+B}`;return `y = ${o.o<0?'−':''}√(${ins})${o.q?(o.q<0?' − '+(-o.q):' + '+o.q):''}`}
+const shapeName=o=>eqOf({p:0,q:0,s:o.s,o:o.o});
+const sg=v=>v>0?'+'+v:''+v;
+function ui(){$('vp').textContent=sg(me.p);$('vq').textContent=sg(me.q);$('shapeNow').textContent=shapeName(me);
+ const flips=[];if(me.s!==base.s)flips.push('y축');if(me.o!==base.o)flips.push('x축');
+ $('eq').innerHTML=`${eqOf(me)}<small>${lv>=4?(flips.length?`y = √x를 ${flips.length===2?'원점':flips[0]}에 대하여 대칭이동한 뒤, `:'y = √x를 '):`원래 ${shapeName(base)}를 `}(${me.p}, ${me.q})만큼 평행이동</small>`;
+ $('dom').textContent=`정의역 x ${me.s>0?'≥':'≤'} ${me.p}`;$('rng').textContent=`치역 y ${me.o>0?'≥':'≤'} ${me.q}`}
+function hud(){$('stg').textContent=stage;$('hearts').textContent='♥'.repeat(hearts)+'♡'.repeat(3-hearts);$('score').textContent=score;$('combo').textContent=combo}
+function nav(){$('missions').innerHTML=MISSIONS.map((m,i)=>`<button data-l="${i+1}" aria-current="${lv===i+1}">${i+1}. ${m.n}</button>`).join('');
+ $('missions').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(ride)return;stage=START[+b.dataset.l-1];hearts=3;combo=0;$('over').hidden=true;newStage()})}
+function say(t){$('bubble').textContent=t}
+
+function curve(o,col,w,dash){ctx.strokeStyle=col;ctx.lineWidth=w;ctx.setLineDash(dash||[]);ctx.lineCap='round';ctx.beginPath();let first=true;
+ for(let u=0;u<=40;u+=.02){const x=xOf(o,u),y=yOf(o,u);if(Math.abs(x)>XR+.5||Math.abs(y)>YR+.5)break;first?ctx.moveTo(X(x),Y(y)):ctx.lineTo(X(x),Y(y));first=false}ctx.stroke();ctx.setLineDash([])}
+function arrow(x1,y1,x2,y2,col,w){const a=Math.atan2(y2-y1,x2-x1),L=Math.hypot(x2-x1,y2-y1);if(L<4)return;ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2-Math.cos(a)*8,y2-Math.sin(a)*8);ctx.stroke();ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-12*Math.cos(a-.45),y2-12*Math.sin(a-.45));ctx.lineTo(x2-12*Math.cos(a+.45),y2-12*Math.sin(a+.45));ctx.closePath();ctx.fill()}
+function starShape(x,y,r,fill){ctx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.48:r;ctx.lineTo(x+rr*Math.cos(a),y+rr*Math.sin(a))}ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle='rgba(0,0,0,.18)';ctx.lineWidth=1.5;ctx.stroke()}
+function buddy(x,y,r,m,t){ctx.save();ctx.translate(x,y);if(m==='joy'&&!reduce)ctx.translate(0,-Math.abs(Math.sin(t/120))*r*.5);
+ ctx.fillStyle='#3e9c62';ctx.beginPath();ctx.moveTo(0,-r*.85);ctx.quadraticCurveTo(-r*.95,-r*1.8,-r*.15,-r*1.45);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(0,-r*.85);ctx.quadraticCurveTo(r,-r*1.65,r*.25,-r*1.35);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#ffe3c2';ctx.strokeStyle='#c98a5a';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,0,r,r*.9,0,0,7);ctx.fill();ctx.stroke();
+ ctx.fillStyle='#ffb3b3';ctx.globalAlpha=.85;ctx.beginPath();ctx.ellipse(-r*.56,r*.2,r*.17,r*.11,0,0,7);ctx.ellipse(r*.56,r*.2,r*.17,r*.11,0,0,7);ctx.fill();ctx.globalAlpha=1;
+ ctx.fillStyle='#3a2f2a';ctx.strokeStyle='#3a2f2a';ctx.lineWidth=2;
+ if(m==='sad'){ctx.beginPath();ctx.moveTo(-r*.45,-r*.2);ctx.lineTo(-r*.2,-r*.06);ctx.moveTo(r*.45,-r*.2);ctx.lineTo(r*.2,-r*.06);ctx.stroke();ctx.beginPath();ctx.arc(0,r*.45,r*.18,Math.PI*1.15,Math.PI*1.85);ctx.stroke()}
+ else if(m==='joy'){ctx.beginPath();ctx.arc(-r*.32,-r*.05,r*.14,Math.PI,0);ctx.stroke();ctx.beginPath();ctx.arc(r*.32,-r*.05,r*.14,Math.PI,0);ctx.stroke();ctx.fillStyle='#e0566e';ctx.beginPath();ctx.arc(0,r*.22,r*.22,0,Math.PI);ctx.fill()}
+ else if(m==='spin'){ctx.beginPath();ctx.arc(-r*.32,-r*.06,r*.13,0,7);ctx.stroke();ctx.beginPath();ctx.arc(r*.32,-r*.06,r*.13,0,7);ctx.stroke();ctx.beginPath();ctx.arc(0,r*.28,r*.09,0,7);ctx.stroke()}
+ else{ctx.beginPath();ctx.arc(-r*.32,-r*.06,r*.11,0,7);ctx.arc(r*.32,-r*.06,r*.11,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-r*.28,-r*.11,r*.04,0,7);ctx.arc(r*.36,-r*.11,r*.04,0,7);ctx.fill();ctx.beginPath();ctx.arc(0,r*.2,r*.15,.15*Math.PI,.85*Math.PI);ctx.stroke()}
+ ctx.restore()}
+
+function draw(now){ctx.clearRect(0,0,W,H);
+ ctx.strokeStyle=C.grid;ctx.lineWidth=1;for(let i=-XR;i<=XR;i++){ctx.beginPath();ctx.moveTo(X(i),0);ctx.lineTo(X(i),H);ctx.stroke()}for(let j=-YR;j<=YR;j++){ctx.beginPath();ctx.moveTo(0,Y(j));ctx.lineTo(W,Y(j));ctx.stroke()}
+ ctx.strokeStyle=C.muted;ctx.globalAlpha=.7;ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(0,Y(0));ctx.lineTo(W,Y(0));ctx.moveTo(X(0),0);ctx.lineTo(X(0),H);ctx.stroke();ctx.globalAlpha=1;
+ ctx.fillStyle=C.muted;ctx.font='11px "IBM Plex Mono",monospace';for(let i=-XR+1;i<XR;i++)if(i)ctx.fillText(i,X(i)-(i<0?7:3),Y(0)+13);for(let j=-YR+1;j<YR;j++)if(j)ctx.fillText(j,X(0)+5,Y(j)+4);ctx.fillText('O',X(0)-12,Y(0)+13);
+ const B0={p:0,q:0,s:base.s,o:base.o};curve(B0,C.base,U*.22);
+ const showGoal=lv===1||lv===4||hintOn,showStars=lv===2||((lv===3||lv>=5)&&hintOn);
+ if(showGoal){ctx.globalAlpha=.9;curve(T,C.goal,U*.26,[U*.35,U*.25]);ctx.globalAlpha=1;ctx.strokeStyle=C.goal;ctx.lineWidth=2.5;ctx.setLineDash([5,4]);ctx.beginPath();ctx.arc(X(T.p),Y(T.q),U*.62,0,7);ctx.stroke();ctx.setLineDash([])}
+ if(lv===5&&!hintOn){ctx.strokeStyle=C.goal;ctx.globalAlpha=.5;ctx.setLineDash([3,6]);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X(T.p),0);ctx.lineTo(X(T.p),H);ctx.moveTo(0,Y(T.q));ctx.lineTo(W,Y(T.q));ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+  ctx.fillStyle=C.goal;ctx.font='600 12px "IBM Plex Mono",monospace';ctx.fillText(`x = ${T.p}`,X(T.p)+4,H-8);ctx.fillText(`y = ${T.q}`,6,Y(T.q)-5)}
+ /* 원래 그래프 위의 점 A, B, C (속 빈 동그라미) */
+ PTS.forEach(P=>dot(X(xOf(B0,P.u)),Y(yOf(B0,P.u)),P,false,P.n));
+ /* 목표 점: 같은 색 별 */
+ if(showStars)PTS.forEach(P=>{if(P.u===0)return;const x=X(xOf(T,P.u)),y=Y(yOf(T,P.u));starShape(x,y,U*.4,P.c);ctx.fillStyle=P.c;ctx.font='700 13px "Noto Sans KR",sans-serif';ctx.fillText(P.n+'의 목표',x+U*.42,y-U*.3)});
+ /* 내 미끄럼틀 */
+ curve(me,C.path,U*.3);
+ /* 대응점 화살표: 같은 색끼리 */
+ PTS.forEach(P=>{const x1=X(xOf(B0,P.u)),y1=Y(yOf(B0,P.u)),x2=X(xOf(me,P.u)),y2=Y(yOf(me,P.u));if(Math.hypot(x2-x1,y2-y1)>U*.5){ctx.globalAlpha=.8;arrow(x1,y1,x2,y2,P.c,P.u===0?2.6:1.8);ctx.globalAlpha=1}});
+ /* 내 그래프 위의 점 A′, B′, C′ (꽉 찬 동그라미) */
+ PTS.forEach(P=>{if(P.u===0)return;dot(X(xOf(me,P.u)),Y(yOf(me,P.u)),P,true,P.n+'′')});
+ party=party.filter(p=>now-p.t<900);party.forEach(p=>{const k=(now-p.t)/900;for(let j=0;j<8;j++){const a=j/8*Math.PI*2;starShape(p.x+Math.cos(a)*k*U*1.6,p.y+Math.sin(a)*k*U*1.6,U*.2*(1-k),C.goal)}});
+ let bx=me.p,by=me.q;if(ride){bx=ride.x;by=ride.y}
+ if(!ride&&me.p===T.p&&me.q===T.q&&showGoal){ctx.strokeStyle=C.path;ctx.lineWidth=3;ctx.beginPath();ctx.arc(X(T.p),Y(T.q),U*.62,0,7);ctx.stroke()}
+ buddy(X(bx),Y(by),U*.44,ride?'happy':mood,now);
+ ctx.fillStyle=C.ink;ctx.beginPath();ctx.arc(X(bx),Y(by),2.6,0,7);ctx.fill();
+ if(!ride){ctx.font='700 13px "Noto Sans KR",sans-serif';ctx.fillStyle=PTS[0].c;ctx.fillText("A′",X(me.p)-U*.95,Y(me.q)+U*.2);ctx.font='600 12px "IBM Plex Mono",monospace';ctx.fillStyle=C.ink;ctx.fillText(`(${me.p}, ${me.q})`,X(me.p)+U*.62,Y(me.q)+U*.75)}}
+
+function loop(now){if(ride){const sp=reduce?.6:.09;let m=0;while(m<sp){const nu=ride.u+.01,nx=xOf(me,nu),ny=yOf(me,nu);m+=Math.hypot(nx-ride.x,ny-ride.y);ride.u=nu;ride.x=nx;ride.y=ny;if(Math.abs(nx)>XR+.8||Math.abs(ny)>YR+.8){ride=null;stage++;newStage();break}}}
+ draw(now);requestAnimationFrame(loop)}
+
+function submit(){if(busy||!$('over').hidden)return;const dp=T.p-me.p,dq=T.q-me.q,shapeOk=me.s===T.s&&me.o===T.o;
+ if(!dp&&!dq&&shapeOk){busy=true;$('go').disabled=true;combo++;const pts=(hintOn?1:2)+(combo>=3?1:0)+(lv>=4?1:0);score+=pts;mood='joy';hud();
+  party.push({x:X(me.p),y:Y(me.q),t:performance.now()});
+  say(`딱 맞았어! ${eqOf(me)}${combo>=3?'  (연속 보너스!)':''}`);
+  setTimeout(()=>{mood='happy';ride={u:0,x:me.p,y:me.q}},1300)}
+ else{hearts--;combo=0;mood='sad';hud();
+  const w=[];if(!shapeOk){if(me.o!==T.o)w.push(T.o<0?'아래로 뻗어야 해(x축 대칭)':'위로 뻗어야 해(x축 대칭)');if(me.s!==T.s)w.push(T.s<0?'왼쪽으로 뻗어야 해(y축 대칭)':'오른쪽으로 뻗어야 해(y축 대칭)')}
+  if(dp)w.push(`x축 방향으로 ${Math.abs(dp)}칸 더 ${dp>0?'오른쪽':'왼쪽'}`);if(dq)w.push(`y축 방향으로 ${Math.abs(dq)}칸 더 ${dq>0?'위':'아래'}`);
+  if(hearts<=0){$('oT').textContent='게임 끝!';$('oP').innerHTML=`<p>미션 ${lv}의 스테이지 ${stage}까지 와서 ${score}점을 얻었어요.</p>`;$('again').textContent='이 미션 다시 하기';$('again').onclick=()=>{stage=START[lv-1];hearts=3;score=0;combo=0;$('over').hidden=true;pending=true;newStage();pending=false};$('over').hidden=false;say('으앙… 다시 해 볼래?')}
+  else say(`아직이야! ${w.join(', ')}.`);
+  setTimeout(()=>{if(mood==='sad')mood='happy'},1500)}}
+
+function move(dx,dy){if(busy||ride||!$('over').hidden)return;me.p=Math.max(-7,Math.min(7,me.p+dx));me.q=Math.max(-5,Math.min(5,me.q+dy));ui();
+ if((lv===1||lv===4)&&me.p===T.p&&me.q===T.q&&me.s===T.s&&me.o===T.o)say('동그라미 안에 쏙! 이제 "여기에 놓기!"를 눌러 줘.')}
+function flip(f){if(busy||ride||!$('over').hidden)return;if(f==='x'||f==='o')me.o*=-1;if(f==='y'||f==='o')me.s*=-1;mood='spin';setTimeout(()=>{if(mood==='spin')mood='happy'},500);
+ say({x:'x축을 거울처럼 뒤집었어! y 대신 −y',y:'y축을 거울처럼 뒤집었어! x 대신 −x',o:'원점을 중심으로 빙글! x는 −x, y는 −y'}[f]);
+ ui()}
+document.querySelectorAll('.move button').forEach(b=>b.onclick=()=>{const [dx,dy]=b.dataset.d.split(',').map(Number);move(dx,dy)});
+document.querySelectorAll('.flip button').forEach(b=>b.onclick=()=>flip(b.dataset.f));
+$('go').onclick=submit;
+$('hint').onclick=()=>{if(hintOn||busy)return;hintOn=true;score=Math.max(0,score-1);hud();say(lv===1?'●과 화살표를 잘 봐!':'주황 점선이 목표 자리야!')};
+function restart(){stage=1;hearts=3;score=0;combo=0;$('over').hidden=true;pending=true;newStage();pending=false}
+$('reset').onclick=restart;
+cv.addEventListener('keydown',e=>{const k={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key];if(k){e.preventDefault();move(...k)}else if(e.key==='Enter')submit()});
+addEventListener('resize',size);
+size();restart();requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>
