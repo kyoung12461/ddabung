@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>점근선 맞추기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* layout: 왼쪽 좌표평면 게임판, 오른쪽 수식·조작 패널. 좁은 화면에서는 위아래로 쌓임 */
+:root{
+  --bg:#f3f1ea; --panel:#ffffff; --ink:#1f2433; --muted:#5f6577; --line:#d9d6cc; --grid:#e8e5dc;
+  --me:#2f6fdc; --asym:#2f6fdc; --target:#e0563a; --ok:#1f9d6b; --chip:#eef3fd;
+  --f-display:"Do Hyeon","Noto Sans KR",system-ui,sans-serif;
+  --f-body:"Noto Sans KR",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13161f; --panel:#1b1f2b; --ink:#e9ebf2; --muted:#a3a9ba; --line:#30364a; --grid:#232838;
+  --me:#78a6ff; --asym:#78a6ff; --target:#ff7d5e; --ok:#4fd19c; --chip:#22304b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13161f; --panel:#1b1f2b; --ink:#e9ebf2; --muted:#a3a9ba; --line:#30364a; --grid:#232838;
+  --me:#78a6ff; --asym:#78a6ff; --target:#ff7d5e; --ok:#4fd19c; --chip:#22304b; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap{max-width:1080px;margin:0 auto;padding-block:22px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 20px}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(30px,5vw,42px);line-height:1.05;margin:0}
+h1 span{color:var(--target)}
+.sub{color:var(--muted);margin:4px 0 0;font-size:14px}
+.levels{display:flex;gap:6px;flex-wrap:wrap}
+.levels button{font:inherit;font-size:13px;padding:7px 12px;border-radius:99px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.levels button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.game{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+.board{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;touch-action:none;position:relative}
+.board canvas{display:block;width:100%;cursor:default}
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--ok);color:#fff;font-family:var(--f-display);font-size:22px;padding:6px 18px;border-radius:99px;pointer-events:none}
+.side{display:grid;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:grid;gap:10px}
+.card h2{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0}
+.mission{font-size:14px;color:var(--muted)}
+.target-eq{font-family:var(--f-mono);font-size:20px;color:var(--target);font-weight:600;text-align:center;padding:8px;border:1.5px dashed var(--target);border-radius:10px}
+.my-eq{font-family:var(--f-mono);font-size:20px;color:var(--me);font-weight:600;text-align:center}
+.asym{display:flex;justify-content:center;gap:16px;font-family:var(--f-mono);font-size:14px;color:var(--asym)}
+.step{display:grid;grid-template-columns:3.2em 2.4em 1fr 2.4em 1.4em;align-items:center;gap:8px;font-size:14px}
+.step b{font-family:var(--f-mono);font-size:18px;text-align:center;font-variant-numeric:tabular-nums}
+.step button{font:inherit;font-size:18px;line-height:1;height:36px;border-radius:9px;border:1px solid var(--line);background:var(--chip);color:var(--ink);cursor:pointer}
+.step .mk{font-size:15px;color:var(--ok);text-align:center}
+.step.lock{opacity:.45}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.go{flex:1;font:inherit;font-family:var(--f-display);font-size:20px;padding:9px 14px;border-radius:12px;border:0;background:var(--target);color:#fff;cursor:pointer}
+.ghost{font:inherit;font-size:13px;padding:9px 12px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+button:focus-visible{outline:2px solid var(--me);outline-offset:2px}
+.prog{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.dot{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--line)}
+.dot.done{background:var(--ok);border-color:var(--ok)}
+.msg{font-size:14px;min-height:1.6em}
+.msg.bad{color:var(--target)} .msg.good{color:var(--ok)}
+.learn{font-size:13.5px;color:var(--muted)}
+.learn b{color:var(--ink)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);padding:8px 12px;border-top:1px solid var(--line)}
+.legend i{display:inline-block;width:18px;height:0;border-top:3px solid;vertical-align:middle;margin-right:5px}
+@media (max-width:820px){.game{grid-template-columns:1fr}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>점근선 <span>맞추기</span></h1>
+      <p class="sub">파란 그래프의 점근선 교점을 끌어 빨간 목표 그래프에 겹쳐 보세요. y = k/(x − p) + q</p>
+    </div>
+    <div class="levels" role="group" aria-label="단계 선택">
+      <button id="L1" aria-pressed="true">1단계 · 평행이동</button>
+      <button id="L2" aria-pressed="false">2단계 · k까지</button>
+      <button id="L3" aria-pressed="false">3단계 · 식만 보고</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <div class="board" id="board">
+      <canvas id="cv" aria-label="유리함수 그래프 게임판"></canvas>
+      <div class="toast" id="toast" hidden>정답!</div>
+      <div class="legend"><span><i style="border-color:var(--me)"></i>내 그래프</span><span><i style="border-color:var(--asym);border-top-style:dashed"></i>내 점근선</span><span id="lgT"><i style="border-color:var(--target);border-top-style:dotted"></i>목표 그래프</span></div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h2 id="mTitle">목표 그래프에 겹치기</h2>
+        <p class="mission" id="mText"></p>
+        <div class="target-eq" id="tEq" hidden></div>
+        <div class="prog" id="prog"></div>
+      </div>
+      <div class="card">
+        <div class="my-eq" id="myEq"></div>
+        <div class="asym" id="myAsym"></div>
+        <div class="step" id="sp"><span>p (좌우)</span><button aria-label="p 줄이기" data-v="p" data-d="-1">−</button><b id="pv">0</b><button aria-label="p 늘리기" data-v="p" data-d="1">+</button><span class="mk" id="pm"></span></div>
+        <div class="step" id="sq"><span>q (위아래)</span><button aria-label="q 줄이기" data-v="q" data-d="-1">−</button><b id="qv">0</b><button aria-label="q 늘리기" data-v="q" data-d="1">+</button><span class="mk" id="qm"></span></div>
+        <div class="step" id="sk"><span>k (모양)</span><button aria-label="k 줄이기" data-v="k" data-d="-1">−</button><b id="kv">1</b><button aria-label="k 늘리기" data-v="k" data-d="1">+</button><span class="mk" id="km"></span></div>
+        <div class="row"><button class="go" id="check">확인하기</button><button class="ghost" id="hintB">힌트</button></div>
+        <div class="msg" id="msg" aria-live="polite"></div>
+      </div>
+      <div class="card learn" id="learn"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d'),board=$('board');
+const XR=8,YR=6;let W,H,U,dpr;
+function size(){dpr=Math.min(2,devicePixelRatio||1);W=board.clientWidth;H=Math.round(W*YR/XR);cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+'px';U=W/(2*XR);ctx.setTransform(dpr,0,0,dpr,0,0)}
+const X=x=>W/2+x*U,Y=y=>H/2-y*U,ix=px=>(px-W/2)/U,iy=py=>(H/2-py)/U;
+let col={};function colors(){const s=getComputedStyle(document.documentElement);['me','asym','target','ok','grid','line','muted','ink','panel'].forEach(k=>col[k]=s.getPropertyValue('--'+k).trim())}
+colors();matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{colors();draw()});new MutationObserver(()=>{colors();draw()}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+const me={p:0,q:0,k:1};let T={p:2,q:1,k:1},level=1,round=0,solved=0,tries=0,hintLv=0;
+const KS=[-6,-4,-3,-2,-1,1,2,3,4,6];
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+function newTarget(){let t;do{t={p:ri(-5,5),q:ri(-4,4),k:level===1?me.k:KS[ri(0,KS.length-1)]}}while((t.p===me.p&&t.q===me.q)||(level===3&&t.q===0&&t.p===0));
+ if(level===1){t.k=[1,2,-1,-2,3][round%5]}T=t;hintLv=0;
+ if(level===1){me.k=T.k}msg('', '');ui();draw()}
+
+function frac(k,p){return `${k<0?'−'+(-k):k}/(x ${p<0?'+ '+(-p):'− '+p})`}
+function stdEq(o){let s=`y = ${frac(o.k,o.p)}`;if(o.q)s+=` ${o.q<0?'− '+(-o.q):'+ '+o.q}`;return s.replace('/(x − 0)','/x')}
+function genEq(o){const a=o.q,b=o.k-o.p*o.q;let num=a===0?`${b<0?'−'+(-b):b}`:`${a===1?'':a===-1?'−':a}x${b?(b<0?' − '+(-b):' + '+b):''}`;num=num.replace(/^-/,'−');const den=o.p===0?'x':`(x ${o.p<0?'+ '+(-o.p):'− '+o.p})`;return a===0?`y = ${num}/${den}`:`y = (${num})/${den}`}
+
+function curve(o,color,dash,w){ctx.strokeStyle=color;ctx.lineWidth=w;ctx.setLineDash(dash);
+ for(const side of [-1,1]){ctx.beginPath();let first=true;for(let t=0.02;t<=XR*2;t*=1.04){const x=o.p+side*t;const y=o.k/(x-o.p)+o.q;if(x<-XR-1||x>XR+1)break;if(Math.abs(y)>YR+3){first=true;continue}first?ctx.moveTo(X(x),Y(y)):ctx.lineTo(X(x),Y(y));first=false}ctx.stroke()}ctx.setLineDash([])}
+function draw(){ctx.clearRect(0,0,W,H);
+ ctx.strokeStyle=col.grid;ctx.lineWidth=1;for(let i=-XR;i<=XR;i++){ctx.beginPath();ctx.moveTo(X(i),0);ctx.lineTo(X(i),H);ctx.stroke()}for(let j=-YR;j<=YR;j++){ctx.beginPath();ctx.moveTo(0,Y(j));ctx.lineTo(W,Y(j));ctx.stroke()}
+ ctx.strokeStyle=col.muted;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(0,Y(0));ctx.lineTo(W,Y(0));ctx.moveTo(X(0),0);ctx.lineTo(X(0),H);ctx.stroke();
+ ctx.fillStyle=col.muted;ctx.font='11px "IBM Plex Mono",monospace';for(let i=-XR+1;i<XR;i++)if(i&&i%2===0)ctx.fillText(i,X(i)-4,Y(0)+13);for(let j=-YR+1;j<YR;j++)if(j&&j%2===0)ctx.fillText(j,X(0)+5,Y(j)+4);ctx.fillText('O',X(0)-12,Y(0)+13);
+ if(level<3||hintLv>=2){curve(T,col.target,[3,5],3);if(hintLv>=1&&level<3){ctx.strokeStyle=col.target;ctx.globalAlpha=.5;ctx.setLineDash([2,6]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(X(T.p),0);ctx.lineTo(X(T.p),H);ctx.moveTo(0,Y(T.q));ctx.lineTo(W,Y(T.q));ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1}}
+ ctx.strokeStyle=col.asym;ctx.lineWidth=1.6;ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(X(me.p),0);ctx.lineTo(X(me.p),H);ctx.moveTo(0,Y(me.q));ctx.lineTo(W,Y(me.q));ctx.stroke();ctx.setLineDash([]);
+ curve(me,col.me,[],3.2);
+ ctx.font='600 12px "IBM Plex Mono",monospace';ctx.fillStyle=col.asym;ctx.fillText(`x = ${me.p}`,X(me.p)+6,14);ctx.fillText(`y = ${me.q}`,W-62,Y(me.q)-6);
+ ctx.fillStyle=col.me;ctx.beginPath();ctx.arc(X(me.p),Y(me.q),9,0,7);ctx.fill();ctx.strokeStyle=col.panel;ctx.lineWidth=2.5;ctx.stroke();
+ ctx.fillStyle=col.ink;ctx.font='12px "Noto Sans KR",sans-serif';ctx.fillText(`(${me.p}, ${me.q})`,X(me.p)+12,Y(me.q)+18);
+ if(level>1){const kx=me.p+1,ky=me.q+me.k;ctx.strokeStyle=col.me;ctx.lineWidth=1;ctx.setLineDash([2,3]);ctx.beginPath();ctx.moveTo(X(kx),Y(me.q));ctx.lineTo(X(kx),Y(ky));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=col.panel;ctx.beginPath();ctx.arc(X(kx),Y(ky),7.5,0,7);ctx.fill();ctx.strokeStyle=col.me;ctx.lineWidth=2.5;ctx.stroke();ctx.fillStyle=col.me;ctx.fillText(`k = ${me.k}`,X(kx)+10,Y(ky)-6)}}
+
+function ui(){$('pv').textContent=me.p;$('qv').textContent=me.q;$('kv').textContent=me.k;
+ $('myEq').textContent=stdEq(me);$('myAsym').innerHTML=`<span>점근선 x = ${me.p}</span><span>y = ${me.q}</span>`;
+ $('sk').classList.toggle('lock',level===1);$('sk').querySelectorAll('button').forEach(b=>b.disabled=level===1);
+ const M=[['L1','목표 그래프에 겹치기','파란 점(점근선의 교점)을 끌어 빨간 점선 그래프 위에 겹치세요. 모양 k는 이미 같습니다.'],['L2','모양까지 맞추기','교점을 옮긴 뒤, 흰 점을 위아래로 끌어 k를 맞추세요. 흰 점은 x = p + 1일 때의 점이라 높이 차가 곧 k입니다.'],['L3','식만 보고 그리기','목표 그래프가 보이지 않습니다. 아래 식을 표준형 y = k/(x − p) + q로 바꿔 점근선을 찾으세요.']][level-1];
+ $('mTitle').textContent=M[1];$('mText').textContent=M[2];
+ $('tEq').hidden=level!==3;$('tEq').textContent=genEq(T);$('lgT').hidden=level===3&&hintLv<2;
+ $('prog').innerHTML=`<span>${level}단계</span>`+[0,1,2,3,4].map(i=>`<span class="dot ${i<solved?'done':''}"></span>`).join('')+`<span>${solved}/5</span>`;
+ const L=[`<b>평행이동 규칙.</b> y = k/x의 그래프를 x축 방향으로 p, y축 방향으로 q만큼 옮기면 y = k/(x − p) + q가 됩니다. 이때 점근선 x = 0, y = 0도 함께 옮겨져 <b>x = p, y = q</b>가 됩니다. 그래프의 모양은 바뀌지 않습니다.`,
+ `<b>k의 역할.</b> k &gt; 0이면 그래프가 점근선 교점의 오른쪽 위와 왼쪽 아래(제1·3사분면 쪽)에, k &lt; 0이면 왼쪽 위와 오른쪽 아래(제2·4사분면 쪽)에 그려집니다. |k|가 클수록 교점에서 멀어집니다.`,
+ `<b>표준형으로 바꾸기.</b> y = (ax + b)/(x − p)는 분자를 분모로 나누어 y = a + (b + ap)/(x − p)로 씁니다. 그래서 점근선은 <b>x = p</b>(분모가 0이 되는 x), <b>y = a</b>(x의 계수의 비)입니다.`][level-1];
+ $('learn').innerHTML=L;
+ ['p','q','k'].forEach(v=>$(v+'m').textContent='')}
+function msg(t,c){$('msg').textContent=t;$('msg').className='msg '+c}
+
+let busy=false;
+function check(){if(busy)return;tries++;const ok={p:me.p===T.p,q:me.q===T.q,k:me.k===T.k};['p','q','k'].forEach(v=>$(v+'m').textContent=ok[v]?'✓':'');
+ if(ok.p&&ok.q&&ok.k){busy=true;solved++;round++;const t=$('toast');t.hidden=false;msg(`정답입니다. ${stdEq(T)}, 점근선 x = ${T.p}, y = ${T.q}`,'good');
+  setTimeout(()=>{t.hidden=true;busy=false;if(solved>=5){msg(level<3?`${level}단계 완료! 다음 단계에 도전해 보세요.`:'모든 단계를 완료했습니다!','good');if(level<3){setTimeout(()=>setLevel(level+1),900)}else{solved=0;round=0;setTimeout(newTarget,1400)}}else newTarget()},1100);ui();
+  ['p','q','k'].forEach(v=>$(v+'m').textContent='✓')}
+ else{const w=[];if(!ok.p)w.push(me.p<T.p?'세로 점근선이 더 오른쪽':'세로 점근선이 더 왼쪽');if(!ok.q)w.push(me.q<T.q?'가로 점근선이 더 위쪽':'가로 점근선이 더 아래쪽');if(!ok.k)w.push(Math.sign(me.k)!==Math.sign(T.k)?'k의 부호가 반대':'k의 크기가 다름');msg(w.join(', ')+'에 있어요.','bad')}}
+function hint(){hintLv=Math.min(2,hintLv+1);if(level<3)msg(hintLv>=1?'목표 그래프의 점근선을 연하게 표시했어요.':'','');else msg(hintLv===1?`분모가 0이 되는 x가 세로 점근선, 분자와 분모의 x 계수의 비 ${T.q}가 가로 점근선이에요.`:'목표 그래프를 보여 드려요.','');ui();draw()}
+
+function setLevel(n){level=n;solved=0;round=0;tries=0;['L1','L2','L3'].forEach((id,i)=>$(id).setAttribute('aria-pressed',i+1===n));me.p=0;me.q=0;me.k=1;newTarget()}
+['L1','L2','L3'].forEach((id,i)=>$(id).onclick=()=>setLevel(i+1));
+document.querySelectorAll('.step button').forEach(b=>b.onclick=()=>{const v=b.dataset.v,d=+b.dataset.d;if(v==='k'){let i=KS.indexOf(me.k)+d;i=Math.max(0,Math.min(KS.length-1,i));me.k=KS[i]}else{me[v]=Math.max(v==='p'?-7:-5,Math.min(v==='p'?7:5,me[v]+d))}ui();draw()});
+$('check').onclick=check;$('hintB').onclick=hint;
+
+let drag=null;const P=e=>{const r=cv.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]};
+cv.addEventListener('pointerdown',e=>{const [x,y]=P(e);if(level>1&&Math.hypot(x-X(me.p+1),y-Y(me.q+me.k))<20)drag='k';else if(Math.hypot(x-X(me.p),y-Y(me.q))<26)drag='c';else return;cv.setPointerCapture(e.pointerId);e.preventDefault()});
+cv.addEventListener('pointermove',e=>{const [x,y]=P(e);if(!drag){cv.style.cursor=(Math.hypot(x-X(me.p),y-Y(me.q))<26||(level>1&&Math.hypot(x-X(me.p+1),y-Y(me.q+me.k))<20))?'grab':'default';return}
+ if(drag==='c'){const p=Math.max(-7,Math.min(7,Math.round(ix(x)))),q=Math.max(-5,Math.min(5,Math.round(iy(y))));if(p!==me.p||q!==me.q){me.p=p;me.q=q;ui();draw()}}
+ else{let k=Math.round(iy(y)-me.q);if(k===0)return;k=Math.max(-6,Math.min(6,k));if(k===5)k=4;if(k===-5)k=-4;if(k!==me.k){me.k=k;ui();draw()}}});
+const end=()=>drag=null;cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
+addEventListener('resize',()=>{size();draw()});
+size();setLevel(1);if(document.fonts)document.fonts.ready.then(draw);
+})();
+</script>
+
+</body>
+</html>
